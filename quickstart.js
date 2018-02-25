@@ -5,14 +5,11 @@ const google = new GoogleApis();
 var googleAuth = require('google-auth-library');
 
 // If modifying these scopes, delete your previously saved credentials
-// at ~/.credentials/youtube-nodejs-quickstart.json
-var SCOPES = ['https://www.googleapis.com/auth/youtube.readonly'];
+// at ~/.credentials/google-apis-nodejs-quickstart.json
+var SCOPES = ['https://www.googleapis.com/auth/youtube.force-ssl']
 var TOKEN_DIR = (process.env.HOME || process.env.HOMEPATH ||
     process.env.USERPROFILE) + '/.credentials/';
-console.log(process.env.HOME)
-console.log(process.env.HOMEPATH)
-console.log(process.env.USERPROFILE)
-var TOKEN_PATH = TOKEN_DIR + 'youtube-nodejs-quickstart.json';
+var TOKEN_PATH = TOKEN_DIR + 'google-apis-nodejs-quickstart.json';
 
 // Load client secrets from a local file.
 fs.readFile('client_secret.json', function processClientSecrets(err, content) {
@@ -21,7 +18,11 @@ fs.readFile('client_secret.json', function processClientSecrets(err, content) {
     return;
   }
   // Authorize a client with the loaded credentials, then call the YouTube API.
-  authorize(JSON.parse(content), getChannel);
+  //See full code sample for authorize() function code.
+authorize(JSON.parse(content), {'params': {'part': 'snippet',
+                 'videoId': 'M7FIvfx5J10',
+                 'onBehalfOfContentOwner': ''}}, captionsList);
+
 });
 
 /**
@@ -31,7 +32,7 @@ fs.readFile('client_secret.json', function processClientSecrets(err, content) {
  * @param {Object} credentials The authorization client credentials.
  * @param {function} callback The callback to call with the authorized client.
  */
-function authorize(credentials, callback) {
+function authorize(credentials, requestData, callback) {
   var clientSecret = credentials.installed.client_secret;
   var clientId = credentials.installed.client_id;
   var redirectUrl = credentials.installed.redirect_uris[0];
@@ -41,10 +42,10 @@ function authorize(credentials, callback) {
   // Check if we have previously stored a token.
   fs.readFile(TOKEN_PATH, function(err, token) {
     if (err) {
-      getNewToken(oauth2Client, callback);
+      getNewToken(oauth2Client, requestData, callback);
     } else {
       oauth2Client.credentials = JSON.parse(token);
-      callback(oauth2Client);
+      callback(oauth2Client, requestData);
     }
   });
 }
@@ -57,7 +58,7 @@ function authorize(credentials, callback) {
  * @param {getEventsCallback} callback The callback to call with the authorized
  *     client.
  */
-function getNewToken(oauth2Client, callback) {
+function getNewToken(oauth2Client, requestData, callback) {
   var authUrl = oauth2Client.generateAuthUrl({
     access_type: 'offline',
     scope: SCOPES
@@ -76,7 +77,7 @@ function getNewToken(oauth2Client, callback) {
       }
       oauth2Client.credentials = token;
       storeToken(token);
-      callback(oauth2Client);
+      callback(oauth2Client, requestData);
     });
   });
 }
@@ -99,30 +100,72 @@ function storeToken(token) {
 }
 
 /**
- * Lists the names and IDs of up to 10 files.
+ * Remove parameters that do not have values.
  *
- * @param {google.auth.OAuth2} auth An authorized OAuth2 client.
+ * @param {Object} params A list of key-value pairs representing request
+ *                        parameters and their values.
+ * @return {Object} The params object minus parameters with no values set.
  */
-function getChannel(auth) {
+function removeEmptyParameters(params) {
+  for (var p in params) {
+    if (!params[p] || params[p] == 'undefined') {
+      delete params[p];
+    }
+  }
+  return params;
+}
+
+/**
+ * Create a JSON object, representing an API resource, from a list of
+ * properties and their values.
+ *
+ * @param {Object} properties A list of key-value pairs representing resource
+ *                            properties and their values.
+ * @return {Object} A JSON object. The function nests properties based on
+ *                  periods (.) in property names.
+ */
+function createResource(properties) {
+  var resource = {};
+  var normalizedProps = properties;
+  for (var p in properties) {
+    var value = properties[p];
+    if (p && p.substr(-2, 2) == '[]') {
+      var adjustedName = p.replace('[]', '');
+      if (value) {
+        normalizedProps[adjustedName] = value.split(',');
+      }
+      delete normalizedProps[p];
+    }
+  }
+  for (var p in normalizedProps) {
+    // Leave properties that don't have values out of inserted resource.
+    if (normalizedProps.hasOwnProperty(p) && normalizedProps[p]) {
+      var propArray = p.split('.');
+      var ref = resource;
+      for (var pa = 0; pa < propArray.length; pa++) {
+        var key = propArray[pa];
+        if (pa == propArray.length - 1) {
+          ref[key] = normalizedProps[p];
+        } else {
+          ref = ref[key] = ref[key] || {};
+        }
+      }
+    };
+  }
+  return resource;
+}
+
+
+function captionsList(auth, requestData) {
   var service = google.youtube('v3');
-  service.channels.list({
-    auth: auth,
-    part: 'snippet,contentDetails,statistics',
-    forUsername: 'GoogleDevelopers'
-  }, function(err, response) {
+  var parameters = removeEmptyParameters(requestData['params']);
+  parameters['auth'] = auth;
+  service.captions.list(parameters, function(err, response) {
     if (err) {
+      console.log(parameters)
       console.log('The API returned an error: ' + err);
       return;
     }
-    var channels = response.items;
-    if (channels.length == 0) {
-      console.log('No channel found.');
-    } else {
-      console.log('This channel\'s ID is %s. Its title is \'%s\', and ' +
-                  'it has %s views.',
-                  channels[0].id,
-                  channels[0].snippet.title,
-                  channels[0].statistics.viewCount);
-    }
+    console.log(response);
   });
 }
