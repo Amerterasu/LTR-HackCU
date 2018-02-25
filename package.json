@@ -17,9 +17,15 @@
   },
   "homepage": "https://github.com/Amerterasu/LTR-HackCU#readme",
   "dependencies": {
+    "FileSaver": "^0.10.0",
+    "blob": "0.0.4",
+    "file-saver": "^1.3.3",
     "firebase": "^4.10.1",
     "fs": "0.0.1-security",
     "google-auth-library": "^0.12.0",
     "googleapis": "24.0.0"
+  },
+  "devDependencies": {
+    "@types/file-saver": "^1.3.0"
   }
 }

@@ -3,6 +3,7 @@ var readline = require('readline');
 var GoogleApis = require('googleapis').GoogleApis;
 const google = new GoogleApis();
 var googleAuth = require('google-auth-library');
+var FileSave = require('file-saver');
 
 // If modifying these scopes, delete your previously saved credentials
 // at ~/.credentials/google-apis-nodejs-quickstart.json
@@ -20,7 +21,7 @@ fs.readFile('client_secret.json', function processClientSecrets(err, content) {
   // Authorize a client with the loaded credentials, then call the YouTube API.
   //See full code sample for authorize() function code.
 authorize(JSON.parse(content), {'params': {'part': 'snippet',
-                 'videoId': 'M7FIvfx5J10',
+                 'videoId': '3FnN5NgIgZU',
                  'onBehalfOfContentOwner': ''}}, captionsList);
 
 });
@@ -155,17 +156,38 @@ function createResource(properties) {
   return resource;
 }
 
+function downloadCaption(auth, idList) {
+  var service = google.youtube('v3')
+  for (id in idList){
+    var parameters = {'id':idList[id], 'auth':auth};
+    service.captions.download(parameters, function(err, response) {
+      if (err) {
+        console.log('Downloading Caption returned an error: ' + err);
+        return;
+      }
+      var blob = new Blob(response, {type: "application/octet-stream"})
+      var fileName = "transcript1.txt"
+      FileSave.saveAs(blob, fileName)
+    });
+  }
+}
 
 function captionsList(auth, requestData) {
   var service = google.youtube('v3');
   var parameters = removeEmptyParameters(requestData['params']);
   parameters['auth'] = auth;
+  var responses = []
   service.captions.list(parameters, function(err, response) {
     if (err) {
-      console.log(parameters)
-      console.log('The API returned an error: ' + err);
+      console.log('Caption List returned an error: ' + err);
       return;
     }
-    console.log(response);
+    idList = response['items']
+
+    for (i in idList){
+      responses.push(idList[i]['id'])
+    }
+    console.log(responses)
+    downloadCaption(auth, responses)
   });
 }
