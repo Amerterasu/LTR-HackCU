@@ -1,0 +1,14 @@
+body {
+  font-family: monospace;
+  word-wrap: break-word;
+}
+
+#container{
+  white-space: pre;
+  padding: 50px;
+}
+
+.request {
+  border-top: 1px solid black;
+  margin-bottom: 10px;
+}
