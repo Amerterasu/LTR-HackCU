@@ -1,6 +1,7 @@
 var fs = require('fs');
 var readline = require('readline');
-var google = require('googleapis');
+var GoogleApis = require('googleapis').GoogleApis;
+const google = new GoogleApis();
 var googleAuth = require('google-auth-library');
 
 // If modifying these scopes, delete your previously saved credentials
@@ -8,6 +9,9 @@ var googleAuth = require('google-auth-library');
 var SCOPES = ['https://www.googleapis.com/auth/youtube.readonly'];
 var TOKEN_DIR = (process.env.HOME || process.env.HOMEPATH ||
     process.env.USERPROFILE) + '/.credentials/';
+console.log(process.env.HOME)
+console.log(process.env.HOMEPATH)
+console.log(process.env.USERPROFILE)
 var TOKEN_PATH = TOKEN_DIR + 'youtube-nodejs-quickstart.json';
 
 // Load client secrets from a local file.
