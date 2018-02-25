@@ -4,6 +4,18 @@ var GoogleApis = require('googleapis').GoogleApis;
 const google = new GoogleApis();
 var googleAuth = require('google-auth-library');
 var FileSave = require('file-saver');
+const vttToJson = require("vtt-to-json");
+var config = {
+  apiKey: "AIzaSyA5toTUmd5OFCbSWxKNOko3iQYVv_7QYUE",
+  authDomain: "lrt-ling-relativity-transfer.firebaseapp.com",
+  databaseURL: "https://lrt-ling-relativity-transfer.firebaseio.com",
+  projectId: "lrt-ling-relativity-transfer",
+  storageBucket: "lrt-ling-relativity-transfer.appspot.com",
+  messagingSenderId: "540435625020"
+};
+var firebase = require('firebase')
+firebase.initializeApp(config);
+var database = firebase.database();
 
 // If modifying these scopes, delete your previously saved credentials
 // at ~/.credentials/google-apis-nodejs-quickstart.json
@@ -47,6 +59,26 @@ function authorize(credentials, requestData, callback) {
     } else {
       oauth2Client.credentials = JSON.parse(token);
       callback(oauth2Client, requestData);
+    }
+  });
+}
+
+function writeUserData(videoId, transcript) {
+  var transcriptRef = database.ref('transcripts/');
+  transcriptRef.once('value', function(snapshot){
+    if(snapshot.hasChild(videoId)){
+      firebase.database().ref('transcripts/'+videoId).transaction(function(pastData){
+        if(pastData){
+          var newText = pastData.text + " " + transcript;
+          pastData.text = newText;
+        }
+        return pastData;
+
+      });
+    }else{
+      firebase.database().ref('transcripts/'+videoId).set({
+        text:transcript
+      });
     }
   });
 }
@@ -158,16 +190,35 @@ function createResource(properties) {
 
 function downloadCaption(auth, idList) {
   var service = google.youtube('v3')
+  var transcript = new Array();
   for (id in idList){
-    var parameters = {'id':idList[id], 'auth':auth};
+    var parameters = {'id':idList[id], 'auth':auth, 'tfmt':'vtt'};
     service.captions.download(parameters, function(err, response) {
       if (err) {
         console.log('Downloading Caption returned an error: ' + err);
         return;
       }
-      var blob = new Blob(response, {type: "application/octet-stream"})
-      var fileName = "transcript1.txt"
-      FileSave.saveAs(blob, fileName)
+      // var blob = new Blob(response, {type: "application/octet-stream"})
+      // var fileName = "transcript1.txt"
+      // FileSave.saveAs(blob, fileName)
+
+      vttToJson(response)
+      .then((result) => {
+        for (i in result){
+          obj = result[i];
+          try{
+            words = obj['part'];
+          }catch(err){
+            console.log("NO PART PARAMETER: " + err)
+            return;
+          }
+
+          writeUserData(idList[id], words);
+        }
+      }).catch(function(){
+        console.log("vtt to json failed");
+      });
+
     });
   }
 }
@@ -187,7 +238,6 @@ function captionsList(auth, requestData) {
     for (i in idList){
       responses.push(idList[i]['id'])
     }
-    console.log(responses)
     downloadCaption(auth, responses)
   });
 }
